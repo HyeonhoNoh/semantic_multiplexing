@@ -1,0 +1,9 @@
+pretrain_models/
+__pycache__/
+data/
+datasets/
+example/
+legacy/
+results/
+vqaeval_result/
+.idea/
