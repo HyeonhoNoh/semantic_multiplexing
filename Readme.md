@@ -87,31 +87,3 @@ Finally, the `./data/vqa_datasets` folders will have the following structure:
 	|  |-- VG_annotations.json
 
 ```
-
-
-
-## Run
-1. The instructions are given in execute.sh, use the following script to execute the script. The following script will start training with the default hyperparameters. You can find the detailed hyperparameters in "base_args.py".
-```bash
-$ bash execute.sh
-``` 
-2. All instructions are given in running_command.sh.
-
-3. All checkpoint files will be saved to the path set by "--output_dir", the manuscript will set a sub-path for each selected eval task.
-
-4. We recommend to use a smaller learning rate and a larger batchsize, since the BERT-initialized model are prone to be overfitted.
-
-## Test
-1. Use the argument "--eval" to enable the test phase.
-Specifically,
-Offline evaluation only support the VQA 2.0 *val* split, which is considered in this work. If you want to evaluate on the VQA 2.0 *test-dev* or *test-std* split, you can upload the obtained result json file to [Eval AI](https://evalai.cloudcv.org/web/challenges/challenge-page/163/overview) to evaluate the scores on *test-dev* and *test-std* splits.
-
-## TODO
-- [x] implement the designed benchmark: task-oriented semantic communication works (T-DeepSC) for the considered tasks, including image(cls/recons), text(cls/recons) under analog transmission.
-- [x] implement the designed benchmark: TDeepSC for VQA and MSA under analog transmission.
-- [x] implement the digital transmission: vector quantization (VQ) and uniform scalar quantization (SQ). 
-- [x] implement the 16QAM and QPSK modulations.
-- [X] the basic version of the unified semantic communication (U-DeepSC).
-- [x] dataset preparation.
-- [x] feature selection-based UDeepSC.
-- [x] packages requirement.
