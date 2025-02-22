@@ -50,12 +50,15 @@ def evaluate(ta_perform: str, net: torch.nn.Module, dataloader: Iterable,
         psnr_list = []
         with torch.no_grad():
             for batch_idx, (imgs, targets) in enumerate(dataloader):
-                imgs, targets = imgs.to(device), targets.to(device)
+                imgs, targets = imgs.to(device), imgs.to(device) #수정
                 outputs = net(img=imgs, ta_perform=ta_perform)
 
                 if batch_idx == 0:
                     fig, axes = plt.subplots(2, 4, figsize=(16, 8))
                     sample_target = targets[0:4]
+                    # sample_output = rearrange(outputs, 
+                    #                           'b (h w) (p1 p2 c) -> b c (h p1) (w p2)', 
+                    #                           p1=PATCH_SIZE, p2=PATCH_SIZE, w=7, h=7)[0:4]
                     sample_output = \
                     rearrange(outputs, 'b (h w) (p1 p2 c) -> b c (h p1) (w p2)', p1=PATCH_SIZE, p2=PATCH_SIZE, w=14, h=14)[
                         0:4]
@@ -190,6 +193,7 @@ def train_class_batch_it(ta_perform, model, samples, targets, criterion, snr):
         outputs = model(img=samples,ta_perform=ta_perform, test_snr=snr)
         loss = criterion(outputs, targets)
     elif ta_perform.startswith('imgr'):
+        targets = samples
         outputs = model(img=samples, ta_perform=ta_perform, test_snr=snr)
         targets = rearrange(targets, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=PATCH_SIZE, p2=PATCH_SIZE)
         loss = criterion(outputs, targets)
@@ -208,7 +212,7 @@ def train_epoch_it(model: torch.nn.Module, criterion: torch.nn.Module,
                 device: torch.device, epoch: int, loss_scaler, ta_perform, max_norm: float=0,
                 start_steps=None,lr_schedule_values=None, wd_schedule_values=None, 
                 update_freq=None, print_freq=50, snr=torch.FloatTensor([12])):
-    model.train(True)                                                         
+    model.train(True)                                                 
     acc_meter = AverageMeter()
     psnr_meter = AverageMeter()
     loss_meter = AverageMeter()
@@ -233,7 +237,7 @@ def train_epoch_it(model: torch.nn.Module, criterion: torch.nn.Module,
         samples = samples.to(device, non_blocking=True)
         batch_size = samples.size(0)
                                                    
-        with torch.cuda.amp.autocast():
+        with torch.amp.autocast("cuda"):
             loss, outputs = train_class_batch_it(
                 ta_perform, model, samples, targets, criterion, snr)
         loss_value = loss.item()

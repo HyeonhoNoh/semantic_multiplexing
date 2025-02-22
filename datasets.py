@@ -5,7 +5,7 @@ import pandas as pd
 import torch.utils.data as data
 
 from transformers import BertTokenizer
-from data import CIFAR_CR,SST_CR
+# from data import CIFAR_CR,SST_CR
 from timm.data import create_transform
 from vqa_utils import VQA2, Config_VQA
 from torch.nn.utils.rnn import pad_sequence
@@ -73,16 +73,22 @@ def build_dataset(is_train, args):
         print("------------------------------------------------------")
 
     if  args.ta_perform.startswith('imgc'):
-        dataset = CIFAR_CR(args.data_path, train=is_train, transform=transform, 
-                                        download=True, if_class=True)
+        dataset = datasets.CIFAR10(args.data_path, train=is_train, transform=transform,
+                                        download=True)#, if_class=True)
     elif  args.ta_perform.startswith('imgr'):
-        dataset = CIFAR_CR(args.data_path, train=is_train, transform=transform, 
-                                        download=True, if_class=False)
-    elif args.ta_perform.startswith('textc'):
-        dataset = SST_CR(root=False, train=is_train, binary=True, if_class=True)
+        # if is_train:
+        #     # STL-10으로 수정
+        #     dataset = datasets.STL10(args.data_path, split="train+unlabeled", transform=transform, download=True)
+        # else:
+        #     dataset = datasets.STL10(args.data_path, split="test", transform=transform, download=True)
+        # 기존 CIFAR-10
+        dataset = datasets.CIFAR10(args.data_path, train=is_train, transform=transform,
+                                        download=True)# if_class=False)
+    # elif args.ta_perform.startswith('textc'):
+    #     dataset = SST_CR(root=False, train=is_train, binary=True, if_class=True)
 
-    elif args.ta_perform.startswith('textr'):
-        dataset = SST_CR(root=True, train=is_train, binary=True, if_class=False)
+    # elif args.ta_perform.startswith('textr'):
+    #     dataset = SST_CR(root=True, train=is_train, binary=True, if_class=False)
 
     elif args.ta_perform.startswith('vqa'):
         config_vqa = Config_VQA()

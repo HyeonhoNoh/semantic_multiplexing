@@ -249,7 +249,7 @@ class NativeScalerWithGradNormCount:
     state_dict_key = "amp_scaler"
 
     def __init__(self):
-        self._scaler = torch.cuda.amp.GradScaler()
+        self._scaler = torch.amp.GradScaler("cuda")
 
     def __call__(self, loss, optimizer, clip_grad=None, parameters=None, create_graph=False, update_grad=True):
         self._scaler.scale(loss).backward(create_graph=create_graph)
@@ -327,6 +327,7 @@ def save_model(args, epoch, model, model_without_ddp, optimizer, loss_scaler, mo
                               '/symbol_' + str(args.n_sym_img))
     else:
         output_dir = Path(args.output_dir+'/ckpt_'+args.ta_perform+'/SNR_'+str(args.snr)+'/symbol_'+str(args.n_sym_img)+'_'+str(args.n_sym_text)+'_'+str(args.n_sym_spe))
+
     path_exists_make(output_dir)
     epoch_name = str(epoch)
     if loss_scaler is not None:
@@ -534,7 +535,7 @@ def calc_ssim(predictions, targets):
     return metric
 
 import nltk
-from pytorch_transformers import BertTokenizer
+from transformers import BertTokenizer
 from nltk.translate.bleu_score import sentence_bleu
 
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")

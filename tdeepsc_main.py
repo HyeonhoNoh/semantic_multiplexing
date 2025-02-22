@@ -31,6 +31,7 @@ def main(args):
     ### Configuration
     utils.init_distributed_mode(args)
     device = torch.device(args.device)
+    print(f"Share ratio: {SHARE_RATIO}")
     if args.is_single_label:
         img_folder = f"./results/imgs/SNR_{args.snr}_UE_{NUM_UE}_RATIO_{SHARE_RATIO}_sym_{args.n_sym_img}_single_label_{args.single_label}/"
     else:
@@ -157,6 +158,7 @@ def main(args):
     #                 args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
     #                 loss_scaler=loss_scaler, epoch=10, model_ema=None)
     ################################## Start Training the T-DeepSC
+    args.epochs = 10
     print(f"Start training for {args.epochs} epochs")
     max_accuracy = 0.0
     start_time = time.time()

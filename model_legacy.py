@@ -11,7 +11,6 @@ from model_util import *
 from functools import partial
 from trans_decoder import Decoder
 from transformers import BertModel
-from transformers import MobileViTFeatureExtractor
 from timm.models.registry import register_model
 from timm.models.layers import trunc_normal_ as __call_trunc_normal_
 from typing import List, Callable, Union, Any, TypeVar, Tuple
@@ -35,7 +34,7 @@ __all__ = [
 class TDeepSC_imgc(nn.Module):
     def __init__(self,
                  img_size=224, patch_size=16, encoder_in_chans=3, encoder_num_classes=0,
-                 encoder_embed_dim=384, encoder_depth=12, encoder_num_heads=12, decoder_num_classes=768,
+                 encoder_embed_dim=768, encoder_depth=12, encoder_num_heads=12, decoder_num_classes=768,
                  decoder_embed_dim=512, decoder_depth=8, decoder_num_heads=8, mlp_ratio=4.,
                  qkv_bias=True, qk_scale=None, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.,
                  norm_layer=nn.LayerNorm, init_values=0., use_learnable_pos_emb=False, num_classes=0, **kwargs
@@ -76,6 +75,7 @@ class TDeepSC_imgc(nn.Module):
         else:
             noise_std = torch.FloatTensor([1]) * 10 ** (-test_snr / 20)
 
+        # x = self.net.forward_features(img)
 
         x = self.net.patch_embed(img)
         cls_token = self.net.cls_token.expand(x.shape[0], -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
@@ -95,77 +95,33 @@ class TDeepSC_imgc(nn.Module):
 
         return x
 
-# class TransformerMapper(nn.Module): 
-#     def __init__(self, input_dim, output_dim, num_layers=2, 
-#                  num_heads=4, dim_feedforward=256, dropout=0.1):
-#         """
-#         Args:
-#             input_dim: Dimension of the conditioning vector.
-#             output_dim: Desired output feature dimension.
-#             num_tokens: Number of learned query tokens (for sequence output).
-#         """
-#         super().__init__()
-#         # self.token_embeddings = nn.Parameter(torch.randn(num_tokens, input_dim))
-#         decoder_layer = nn.TransformerDecoderLayer(d_model=input_dim, nhead=num_heads, 
-#                                                    dim_feedforward=dim_feedforward, dropout=dropout, batch_first=True)
-#         self.transformer_decoder = nn.TransformerDecoder(decoder_layer, num_layers=num_layers)
-#         self.fc = nn.Linear(input_dim, output_dim)
-    
-#     def forward(self, x):
-#         """
-#         Args:
-#             x: Input tensor of shape (batch, seq_len, input_dim)
-#         Returns:
-#             Output tensor of shape (batch, output_dim) if num_tokens==1, 
-#             or (batch, num_tokens, output_dim) if num_tokens > 1.
-#         """
-#         query = x.transpose(0,1)
-#         memory = x.transpose(0,1)
-#         out = self.transformer_decoder(query, memory)
-#         out = out.transpose(0,1)
-#         out = self.fc(out)
-#         return out
-           
+
 class TDeepSC_imgr(nn.Module):
     def __init__(self,
-                 img_size=224, 
-                 encoder_embed_dim=384, encoder_depth=12, encoder_num_heads=12, decoder_num_classes=768,
+                 img_size=224, patch_size=32, encoder_in_chans=3, encoder_num_classes=0,
+                 encoder_embed_dim=768, encoder_depth=12, encoder_num_heads=12, decoder_num_classes=768,
                  decoder_embed_dim=512, decoder_depth=8, decoder_num_heads=8, mlp_ratio=4.,
                  qkv_bias=False, qk_scale=None, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.,
                  norm_layer=nn.LayerNorm, init_values=0., use_learnable_pos_emb=False, num_classes=0, **kwargs
                  ):
         super().__init__()
-        
         # self.img_encoder = ViTEncoder_imgcr(img_size=img_size, patch_size=patch_size, in_chans=encoder_in_chans,
         #                         num_classes=encoder_num_classes, embed_dim=encoder_embed_dim,depth=encoder_depth,
         #                         num_heads=encoder_num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias,drop_rate=drop_rate,
         #                         drop_path_rate=drop_path_rate,norm_layer=norm_layer, init_values=init_values,
-        #                         use_learnable_pos_emb=use_learnable_pos_emb)      
-        
-        self.net = timm.create_model("vit_small_patch" + str(PATCH_SIZE) + "_" + str(img_size) + ".dino", pretrained=True)
-        for param in self.net.parameters():
-            param.requires_grad = False
+        #                         use_learnable_pos_emb=use_learnable_pos_emb)
+
+        self.net = timm.create_model("vit_base_patch" + str(PATCH_SIZE) + "_" + str(img_size), pretrained=True)
         self.net.head = nn.Linear(decoder_embed_dim, IMGR_LENGTH)
 
+        # self.head = nn.Linear(decoder_embed_dim, IMGR_LENGTH)
+
         self.num_symbol = kwargs['n_sym_img']
-        encoder_embed_dim = 384 
-        
-        self.encoder_to_channel = nn.Sequential(
-            nn.Linear(encoder_embed_dim, 128),
-            nn.ReLU(),
-            nn.Linear(128, self.num_symbol))
-        
-        self.channel_to_decoder = nn.Sequential(
-            nn.Linear(self.num_symbol, 128),
-            nn.ReLU(),
-            nn.Linear(128, int(decoder_embed_dim)))
 
-        if SHARE_RATIO != 0:
-            self.channel_to_share = nn.Conv2d(in_channels=NUM_UE, out_channels=1, 
-                                          kernel_size=(1,int(1/SHARE_RATIO)), stride=(1,int(1/SHARE_RATIO)))
-        else:
-            self.channel_to_share =  nn.Linear(self.num_symbol, int(self.num_symbol * SHARE_RATIO))
+        self.encoder_to_channel = nn.Linear(encoder_embed_dim, self.num_symbol)
+        self.channel_to_decoder = [nn.Linear(self.num_symbol, int(decoder_embed_dim)) for i in range(NUM_UE)]
 
+        self.channel_to_share = nn.Linear(self.num_symbol * NUM_UE, int(self.num_symbol * SHARE_RATIO))
         self.channel_to_private = nn.Linear(self.num_symbol, int(self.num_symbol * (1 - SHARE_RATIO)))
 
         self.decoder = Decoder(depth=decoder_depth, embed_dim=decoder_embed_dim, num_heads=decoder_num_heads,
@@ -194,38 +150,38 @@ class TDeepSC_imgr(nn.Module):
             noise_std = torch.FloatTensor([1]) * 10 ** (-test_snr / 20)
         else:
             noise_std = torch.FloatTensor([1]) * 10 ** (-test_snr / 20)
-        
+            # x = self.img_encoder(img, ta_perform)[:,1:]
+        # batch_size = x.shape[0]
+
         x = self.net.patch_embed(img)
         cls_token = self.net.cls_token.expand(x.shape[0], -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
         x = torch.cat((cls_token, x), dim=1)
         x = self.net.pos_drop(x + self.net.pos_embed)
         x = self.net.blocks(x[:, 1:])
-        x = self.net.norm(x) #(128, 49, 384)
-        x = self.encoder_to_channel(x) #(128, 49, 32) # 128 배치 별로 32심볼로 구성
-        # print(f"Encoder2Channel: {x.shape}")
+        x = self.net.norm(x)
 
-        if SHARE_RATIO != 0:
-            batch_size, seq_len, num_sym = x.shape
-            shared = torch.reshape(x, [batch_size // NUM_UE, NUM_UE, seq_len, num_sym]) # (32, 4, 49, 32)
-            shared = shared.reshape(shared.shape[0] * shared.shape[2], NUM_UE, -1) # (32* 49, 4, 32) 
-            shared = shared.unsqueeze(2) # (32* 49, 4, 1, 32)
-            shared = self.channel_to_share(shared) # (32*49, 1, 1, 16)
-            shared = shared.reshape(batch_size // NUM_UE, seq_len, int(num_sym*SHARE_RATIO)) # (32, 49, 16)
-            shared = shared.repeat(NUM_UE, 1, 1) # (128, 49, 16)
-        else:   
-            shared = self.channel_to_share(x)
-        # print(f"Shared: {shared.shape}")
-        
-        private = self.channel_to_private(x) # (128, 49, 16)
-        # print(f"Private: {private.shape}")
-        
-        x = torch.cat([shared,private], dim=2) # (128, 49, 32)
+        x = self.encoder_to_channel(x)
+
+        x = torch.reshape(x, [x.shape[0] // NUM_UE, NUM_UE, x.shape[1], x.shape[2]])
+        shared = x.permute([0, 2, 1, 3]).reshape([-1, x.shape[2], x.shape[1] * x.shape[3]])
+        shared = self.channel_to_share(shared)
+        shared = shared.unsqueeze(1).expand(-1, NUM_UE, -1, -1)
+        private = self.channel_to_private(x)
+        x = torch.cat([shared, private], dim=3)
+        x = x.reshape([-1, x.shape[2], x.shape[3]])
+
         x = power_norm_batchwise(x)
-        x = self.channel_to_decoder(x) # (128, 49, 128)
-        # print(f"Channel2Decoder: {x.shape}")
+        # x = self.channel.Rayleigh(x, noise_std.item())
+        x = x.reshape([-1, NUM_UE, x.shape[1], x.shape[2]])
+        x = torch.cat([self.channel_to_decoder[0].to(x.device)(x[:, i, ...]).unsqueeze(1) for i in range(NUM_UE)],
+                      dim=1)
+        x = x.reshape([-1, x.shape[2], x.shape[3]])
+
+        # query_embed = self.query_embedd.weight.unsqueeze(0).repeat(batch_size, 1, 1)
         x = self.decoder(x, x, None, None, None)
-        x = self.net.head(x[:, 0:]) # (128, 196, 768)
+        x = self.net.head(x[:, 0:])
         return x
+
 
 class TDeepSC_vqa(nn.Module):
     def __init__(self,
