@@ -211,33 +211,33 @@ class TDeepSC_imgr(nn.Module):
         
         x = self.net(img)
         return x
-        x = self.encoder_to_channel(x)
-        # print(f"Encoder2Channel: {x.shape}") # (128, 32)
+        # x = self.encoder_to_channel(x)
+        # # print(f"Encoder2Channel: {x.shape}") # (128, 32)
 
-        if SHARE_RATIO != 0:
-            batch_size, num_sym = x.shape
-            shared = torch.reshape(x, [batch_size // NUM_UE, NUM_UE, num_sym]) # (32, 4, 32)
-            # shared = shared.reshape(shared.shape[0] * shared.shape[2], NUM_UE, -1) # (32* 49, 4, 32) 
-            shared = shared.unsqueeze(2) # (32, 4, 1, 32)
-            shared = self.channel_to_share(shared) # (32, 1, 1, 16)
-            shared = shared.reshape(batch_size // NUM_UE, int(num_sym*SHARE_RATIO)) # (32, 16)
-            shared = shared.repeat(NUM_UE, 1) # (128, 16)
-            # shared = shared.repeat_interleave(NUM_UE, dim=0)
-        else:   
-            shared = self.channel_to_share(x)
-        # print(f"Shared: {shared.shape}")
+        # if SHARE_RATIO != 0:
+        #     batch_size, num_sym = x.shape
+        #     shared = torch.reshape(x, [batch_size // NUM_UE, NUM_UE, num_sym]) # (32, 4, 32)
+        #     # shared = shared.reshape(shared.shape[0] * shared.shape[2], NUM_UE, -1) # (32* 49, 4, 32) 
+        #     shared = shared.unsqueeze(2) # (32, 4, 1, 32)
+        #     shared = self.channel_to_share(shared) # (32, 1, 1, 16)
+        #     shared = shared.reshape(batch_size // NUM_UE, int(num_sym*SHARE_RATIO)) # (32, 16)
+        #     shared = shared.repeat(NUM_UE, 1) # (128, 16)
+        #     # shared = shared.repeat_interleave(NUM_UE, dim=0)
+        # else:   
+        #     shared = self.channel_to_share(x)
+        # # print(f"Shared: {shared.shape}")
         
-        private = self.channel_to_private(x) # (128, 16)
-        # print(f"Private: {private.shape}")
+        # private = self.channel_to_private(x) # (128, 16)
+        # # print(f"Private: {private.shape}")
         
-        x = torch.cat([shared,private], dim=1) # (128, 32)
-        x = power_norm_batchwise(x)
+        # x = torch.cat([shared,private], dim=1) # (128, 32)
+        # x = power_norm_batchwise(x)
         
-        x = self.channel_to_decoder(x)
-        x = x.reshape(batch_size, 64, 14, 14)
-        x = self.decoder(x)
+        # x = self.channel_to_decoder(x)
+        # x = x.reshape(batch_size, 64, 14, 14)
+        # x = self.decoder(x)
 
-        return x
+        # return x
 
 class TDeepSC_vqa(nn.Module):
     def __init__(self,

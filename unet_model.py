@@ -103,7 +103,8 @@ class UpConv(nn.Module):
         if self.merge_mode == 'concat':
             x = torch.cat((from_up, from_down), 1)
         else:
-            x = from_up + from_down
+            x = from_down
+            # x = from_up + from_down
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         return x
@@ -134,7 +135,7 @@ class UNet(nn.Module):
 
     def __init__(self, num_ue=4, share_ratio=0, num_symbols=32, in_channels=3, depth=4, 
                  start_filts=64, up_mode='transpose', 
-                 merge_mode='concat'):
+                 merge_mode=None):
         """
         Arguments:
             in_channels: int, number of channels in the input tensor.
@@ -155,13 +156,13 @@ class UNet(nn.Module):
                              "upsampling. Only \"transpose\" and "
                              "\"upsample\" are allowed.".format(up_mode))
     
-        if merge_mode in ('concat', 'add'):
-            self.merge_mode = merge_mode
-        else:
-            raise ValueError("\"{}\" is not a valid mode for"
-                             "merging up and down paths. "
-                             "Only \"concat\" and "
-                             "\"add\" are allowed.".format(up_mode))
+        # if merge_mode in ('concat', 'add'):
+        self.merge_mode = merge_mode        
+        # else:
+        #     raise ValueError("\"{}\" is not a valid mode for"
+        #                      "merging up and down paths. "
+        #                      "Only \"concat\" and "
+        #                      "\"add\" are allowed.".format(up_mode))
 
         # NOTE: up_mode 'upsample' is incompatible with merge_mode 'add'
         if self.up_mode == 'upsample' and self.merge_mode == 'add':
@@ -210,11 +211,18 @@ class UNet(nn.Module):
             self.common_fc = nn.Linear(512, int(self.num_symbols * self.share_ratio))
         self.distinct_fc = nn.Linear(512, int(self.num_symbols * (1-self.share_ratio)))
         self.proj = nn.Sequential(
-            nn.Linear(self.num_symbols, 512),
+            nn.Linear(self.num_symbols, 256),
             nn.ReLU(),
-            nn.Linear(512, 512*28*28)
+            nn.Linear(256, 32*7*7)
         )
-        self.proj_shape = (512, 28, 28)
+        self.proj_shape = (32, 7, 7)
+        
+        self.upsample_layers = nn.Sequential(
+            nn.ConvTranspose2d(32, 128, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(128, 512, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(inplace=True)
+        )
         self.reset_params()
 
     @staticmethod
@@ -256,8 +264,8 @@ class UNet(nn.Module):
             latent_vec = distinct
             
         x = self.proj(latent_vec)
-        x = x.view(-1, *self.proj_shape)
-        
+        x = x.view(-1, *self.proj_shape) # (B, 32, 7, 7)
+        x = self.upsample_layers(x)
         for i, module in enumerate(self.up_convs):
             before_pool = encoder_outs[-(i+2)]
             x = module(before_pool, x)
