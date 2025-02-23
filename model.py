@@ -21,7 +21,7 @@ from base_args import IMGC_NUMCLASS, TEXTC_NUMCLASS, IMGR_LENGTH, TEXTR_NUMCLASS
     PATCH_SIZE, BERT_SIZE
 
 from base_args import NUM_UE, SHARE_RATIO
-
+from unet_model import UNet
 
 def trunc_normal_(tensor, mean=0., std=1.):
     __call_trunc_normal_(tensor, mean=mean, std=std, a=-std, b=std)
@@ -141,90 +141,102 @@ class TDeepSC_imgr(nn.Module):
         #                         num_heads=encoder_num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias,drop_rate=drop_rate,
         #                         drop_path_rate=drop_path_rate,norm_layer=norm_layer, init_values=init_values,
         #                         use_learnable_pos_emb=use_learnable_pos_emb)      
+        self.net = UNet(num_ue=NUM_UE, share_ratio=SHARE_RATIO, num_symbols=kwargs['n_sym_img'], 
+                        in_channels=3, depth=4, merge_mode='concat')
+        # self.net = timm.create_model("vit_small_patch" + str(PATCH_SIZE) + "_" + str(img_size) + ".dino", pretrained=True)
+        # for param in self.net.parameters():
+        #     param.requires_grad = False
+        # self.net.head = nn.Linear(decoder_embed_dim, IMGR_LENGTH)
+
+        # self.num_symbol = kwargs['n_sym_img']
+        # encoder_embed_dim = 384 
+        # decoder_embed_dim = 1024
         
-        self.net = timm.create_model("vit_small_patch" + str(PATCH_SIZE) + "_" + str(img_size) + ".dino", pretrained=True)
-        for param in self.net.parameters():
-            param.requires_grad = False
-        self.net.head = nn.Linear(decoder_embed_dim, IMGR_LENGTH)
-
-        self.num_symbol = kwargs['n_sym_img']
-        encoder_embed_dim = 384 
+        # self.encoder_to_channel = nn.Sequential(
+        #     nn.Linear(encoder_embed_dim, 128),
+        #     nn.ReLU(),
+        #     nn.Linear(128, self.num_symbol))
         
-        self.encoder_to_channel = nn.Sequential(
-            nn.Linear(encoder_embed_dim, 128),
-            nn.ReLU(),
-            nn.Linear(128, self.num_symbol))
-        
-        self.channel_to_decoder = nn.Sequential(
-            nn.Linear(self.num_symbol, 128),
-            nn.ReLU(),
-            nn.Linear(128, int(decoder_embed_dim)))
+        # self.channel_to_decoder = nn.Sequential(
+        #     nn.Linear(self.num_symbol, 256),
+        #     nn.ReLU(),
+        #     nn.Linear(256, 64*14*14)
+        # )
+        # self.decoder = nn.Sequential(
+        #     # (64, 14, 14) -> (32, 28, 28)
+        #     nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),
+        #     nn.ReLU(inplace=True),
+        #     # (32, 28, 28) -> (16, 56, 56)
+        #     nn.ConvTranspose2d(32, 16, kernel_size=4, stride=2, padding=1),
+        #     nn.ReLU(inplace=True),
+        #     # (16, 56, 56) -> (8, 112, 112)
+        #     nn.ConvTranspose2d(16, 8, kernel_size=4, stride=2, padding=1),
+        #     nn.ReLU(inplace=True),
+        #     # (8, 112, 112) -> (output_channels, 224, 224)
+        #     nn.ConvTranspose2d(8, 3, kernel_size=4, stride=2, padding=1),
+        #     # Use Tanh if your images are normalized to [-1,1], or Sigmoid for [0,1]
+        #     nn.Sigmoid()
+        # )
 
-        if SHARE_RATIO != 0:
-            self.channel_to_share = nn.Conv2d(in_channels=NUM_UE, out_channels=1, 
-                                          kernel_size=(1,int(1/SHARE_RATIO)), stride=(1,int(1/SHARE_RATIO)))
-        else:
-            self.channel_to_share =  nn.Linear(self.num_symbol, int(self.num_symbol * SHARE_RATIO))
+        # if SHARE_RATIO != 0:
+        #     self.channel_to_share = nn.Conv2d(in_channels=NUM_UE, out_channels=1, 
+        #                                   kernel_size=(1,int(1/SHARE_RATIO)), stride=(1,int(1/SHARE_RATIO)))
+        # else:
+        #     self.channel_to_share =  nn.Linear(self.num_symbol, int(self.num_symbol * SHARE_RATIO))
 
-        self.channel_to_private = nn.Linear(self.num_symbol, int(self.num_symbol * (1 - SHARE_RATIO)))
+        # self.channel_to_private = nn.Linear(self.num_symbol, int(self.num_symbol * (1 - SHARE_RATIO)))
+        # self.channel = Channels()
 
-        self.decoder = Decoder(depth=decoder_depth, embed_dim=decoder_embed_dim, num_heads=decoder_num_heads,
-                               dff=mlp_ratio * decoder_embed_dim, drop_rate=drop_rate)
-        # self.query_embedd = nn.Embedding(64, decoder_embed_dim)
-        self.channel = Channels()
+    # def _init_weights(self, m):
+    #     if isinstance(m, nn.Linear):
+    #         nn.init.xavier_uniform_(m.weight)
+    #         if isinstance(m, nn.Linear) and m.bias is not None:
+    #             nn.init.constant_(m.bias, 0)
+    #     elif isinstance(m, nn.LayerNorm):
+    #         nn.init.constant_(m.bias, 0)
+    #         nn.init.constant_(m.weight, 1.0)
 
-    def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
-            nn.init.xavier_uniform_(m.weight)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
+    # def get_num_layers(self):
+    #     return len(self.blocks)
 
-    def get_num_layers(self):
-        return len(self.blocks)
-
-    @torch.jit.ignore
-    def no_weight_decay(self):
-        return {'pos_embed', 'cls_token', 'mask_token'}
+    # @torch.jit.ignore
+    # def no_weight_decay(self):
+    #     return {'pos_embed', 'cls_token', 'mask_token'}
 
     def forward(self, text=None, img=None, ta_perform=None, test_snr=torch.FloatTensor([12])):
-        if self.training:
-            noise_std = torch.FloatTensor([1]) * 10 ** (-test_snr / 20)
-        else:
-            noise_std = torch.FloatTensor([1]) * 10 ** (-test_snr / 20)
+        # if self.training:
+        #     noise_std = torch.FloatTensor([1]) * 10 ** (-test_snr / 20)
+        # else:
+        #     noise_std = torch.FloatTensor([1]) * 10 ** (-test_snr / 20)
         
-        x = self.net.patch_embed(img)
-        cls_token = self.net.cls_token.expand(x.shape[0], -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
-        x = torch.cat((cls_token, x), dim=1)
-        x = self.net.pos_drop(x + self.net.pos_embed)
-        x = self.net.blocks(x[:, 1:])
-        x = self.net.norm(x) #(128, 49, 384)
-        x = self.encoder_to_channel(x) #(128, 49, 32) # 128 배치 별로 32심볼로 구성
-        # print(f"Encoder2Channel: {x.shape}")
+        x = self.net(img)
+        return x
+        x = self.encoder_to_channel(x)
+        # print(f"Encoder2Channel: {x.shape}") # (128, 32)
 
         if SHARE_RATIO != 0:
-            batch_size, seq_len, num_sym = x.shape
-            shared = torch.reshape(x, [batch_size // NUM_UE, NUM_UE, seq_len, num_sym]) # (32, 4, 49, 32)
-            shared = shared.reshape(shared.shape[0] * shared.shape[2], NUM_UE, -1) # (32* 49, 4, 32) 
-            shared = shared.unsqueeze(2) # (32* 49, 4, 1, 32)
-            shared = self.channel_to_share(shared) # (32*49, 1, 1, 16)
-            shared = shared.reshape(batch_size // NUM_UE, seq_len, int(num_sym*SHARE_RATIO)) # (32, 49, 16)
-            shared = shared.repeat(NUM_UE, 1, 1) # (128, 49, 16)
+            batch_size, num_sym = x.shape
+            shared = torch.reshape(x, [batch_size // NUM_UE, NUM_UE, num_sym]) # (32, 4, 32)
+            # shared = shared.reshape(shared.shape[0] * shared.shape[2], NUM_UE, -1) # (32* 49, 4, 32) 
+            shared = shared.unsqueeze(2) # (32, 4, 1, 32)
+            shared = self.channel_to_share(shared) # (32, 1, 1, 16)
+            shared = shared.reshape(batch_size // NUM_UE, int(num_sym*SHARE_RATIO)) # (32, 16)
+            shared = shared.repeat(NUM_UE, 1) # (128, 16)
+            # shared = shared.repeat_interleave(NUM_UE, dim=0)
         else:   
             shared = self.channel_to_share(x)
         # print(f"Shared: {shared.shape}")
         
-        private = self.channel_to_private(x) # (128, 49, 16)
+        private = self.channel_to_private(x) # (128, 16)
         # print(f"Private: {private.shape}")
         
-        x = torch.cat([shared,private], dim=2) # (128, 49, 32)
+        x = torch.cat([shared,private], dim=1) # (128, 32)
         x = power_norm_batchwise(x)
-        x = self.channel_to_decoder(x) # (128, 49, 128)
-        # print(f"Channel2Decoder: {x.shape}")
-        x = self.decoder(x, x, None, None, None)
-        x = self.net.head(x[:, 0:]) # (128, 196, 768)
+        
+        x = self.channel_to_decoder(x)
+        x = x.reshape(batch_size, 64, 14, 14)
+        x = self.decoder(x)
+
         return x
 
 class TDeepSC_vqa(nn.Module):

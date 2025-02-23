@@ -56,15 +56,16 @@ def evaluate(ta_perform: str, net: torch.nn.Module, dataloader: Iterable,
                 if batch_idx == 0:
                     fig, axes = plt.subplots(2, 4, figsize=(16, 8))
                     sample_target = targets[0:4]
+                    sample_output = outputs[0:4]
                     # sample_output = rearrange(outputs, 
                     #                           'b (h w) (p1 p2 c) -> b c (h p1) (w p2)', 
                     #                           p1=PATCH_SIZE, p2=PATCH_SIZE, w=7, h=7)[0:4]
-                    sample_output = \
-                    rearrange(outputs, 'b (h w) (p1 p2 c) -> b c (h p1) (w p2)', p1=PATCH_SIZE, p2=PATCH_SIZE, w=14, h=14)[
-                        0:4]
-
-                    sample_target = sample_target.float().detach().cpu().permute(0, 2, 3, 1)
+                    # sample_output = \
+                    # rearrange(outputs, 'b (h w) (p1 p2 c) -> b c (h p1) (w p2)', p1=PATCH_SIZE, p2=PATCH_SIZE, w=14, h=14)[
+                    #     0:4]
+                    sample_target = sample_target.float().detach().cpu().permute(0, 2, 3, 1) #(128, 224, 224, 3)
                     sample_output = sample_output.float().detach().cpu().permute(0, 2, 3, 1)
+   
                     for i in range(4):
                         axes[0,i].imshow(sample_target[i])
                         axes[0,i].set_title(f"Sample Target {i+1}")
@@ -78,8 +79,8 @@ def evaluate(ta_perform: str, net: torch.nn.Module, dataloader: Iterable,
                     plt.savefig(img_name)
                     plt.close()
 
-                outputs = rearrange(outputs, 'b n (p c) -> b n p c', c=3)
-                outputs = rearrange(outputs, 'b (h w) (p1 p2) c -> b c (h p1) (w p2)', p1=PATCH_SIZE, p2=PATCH_SIZE, h=7 * (32 // PATCH_SIZE), w=7 * (32 // PATCH_SIZE))
+                # outputs = rearrange(outputs, 'b n (p c) -> b n p c', c=3)
+                # outputs = rearrange(outputs, 'b (h w) (p1 p2) c -> b c (h p1) (w p2)', p1=PATCH_SIZE, p2=PATCH_SIZE, h=7 * (32 // PATCH_SIZE), w=7 * (32 // PATCH_SIZE))
                 loss = criterion(outputs, targets)
                 batch_size = targets.shape[0]
                 ######  Predictions  ######
@@ -193,9 +194,9 @@ def train_class_batch_it(ta_perform, model, samples, targets, criterion, snr):
         outputs = model(img=samples,ta_perform=ta_perform, test_snr=snr)
         loss = criterion(outputs, targets)
     elif ta_perform.startswith('imgr'):
-        targets = samples
-        outputs = model(img=samples, ta_perform=ta_perform, test_snr=snr)
-        targets = rearrange(targets, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=PATCH_SIZE, p2=PATCH_SIZE)
+        targets = samples #(128, 3, 224, 224)
+        outputs = model(img=samples, ta_perform=ta_perform, test_snr=snr) #(128, 196, 768)
+        # targets = rearrange(targets, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=PATCH_SIZE, p2=PATCH_SIZE)
         loss = criterion(outputs, targets)
     elif ta_perform.startswith('textc'):
         outputs = model(text=samples, test_snr=snr)
@@ -234,7 +235,7 @@ def train_epoch_it(model: torch.nn.Module, criterion: torch.nn.Module,
                     param_group["weight_decay"] = wd_schedule_values[it]
 
         targets = targets.to(device, non_blocking=True)
-        samples = samples.to(device, non_blocking=True)
+        samples = samples.to(device, non_blocking=True) # (128, 3, 224, 224)
         batch_size = samples.size(0)
                                                    
         with torch.amp.autocast("cuda"):
@@ -271,8 +272,8 @@ def train_epoch_it(model: torch.nn.Module, criterion: torch.nn.Module,
             acc_meter.update((outputs.max(-1)[-1] == targets).float().mean().item(), n=batch_size)
             loss_meter.update(loss_value, 1)
         elif ta_perform.startswith('imgr'):
-            outputs = rearrange(outputs, 'b n (p c) -> b n p c', c=3)
-            outputs = rearrange(outputs, 'b (h w) (p1 p2) c -> b c (h p1) (w p2)', p1=PATCH_SIZE, p2=PATCH_SIZE, h=7 * (32 // PATCH_SIZE), w=7 * (32 // PATCH_SIZE))
+            # outputs = rearrange(outputs, 'b n (p c) -> b n p c', c=3)
+            # outputs = rearrange(outputs, 'b (h w) (p1 p2) c -> b c (h p1) (w p2)', p1=PATCH_SIZE, p2=PATCH_SIZE, h=7 * (32 // PATCH_SIZE), w=7 * (32 // PATCH_SIZE))
             tr_imgs = torch.tensor((samples*255).detach().cpu().numpy().astype(int).clip(0,255)).float()
             re_imgs = torch.tensor((outputs*255).detach().cpu().numpy().astype(int).clip(0,255)).float()
             psnr_meter.update(10 * math.log10(255.0**2/(criterion(tr_imgs, re_imgs))), n=1)
