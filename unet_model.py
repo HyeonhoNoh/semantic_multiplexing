@@ -73,7 +73,7 @@ class UpConv(nn.Module):
     A ReLU activation follows each convolution.
     """
     def __init__(self, in_channels, out_channels, 
-                 merge_mode='concat', up_mode='transpose'):
+                 merge_mode=None, up_mode='transpose'):
         super(UpConv, self).__init__()
 
         self.in_channels = in_channels

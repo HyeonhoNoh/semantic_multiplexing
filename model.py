@@ -142,7 +142,7 @@ class TDeepSC_imgr(nn.Module):
         #                         drop_path_rate=drop_path_rate,norm_layer=norm_layer, init_values=init_values,
         #                         use_learnable_pos_emb=use_learnable_pos_emb)      
         self.net = UNet(num_ue=NUM_UE, share_ratio=SHARE_RATIO, num_symbols=kwargs['n_sym_img'], 
-                        in_channels=3, depth=4, merge_mode='concat')
+                        in_channels=3, depth=4, merge_mode=None)
         # self.net = timm.create_model("vit_small_patch" + str(PATCH_SIZE) + "_" + str(img_size) + ".dino", pretrained=True)
         # for param in self.net.parameters():
         #     param.requires_grad = False
