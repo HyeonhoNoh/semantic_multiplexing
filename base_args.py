@@ -12,16 +12,16 @@ BERT_SIZE = "small"
 IMGR_LENGTH = 3 * (PATCH_SIZE ** 2)   # CIFAR Data patch4/48   patch2/12   patch32/3072
 
 NUM_UE = 4
-SHARE_RATIO = 127/128
+SHARE_RATIO = 0.25
 
 def get_args():
     parser = argparse.ArgumentParser('T-DeepSC training script', add_help=False)
     parser.add_argument('--batch_size', default=64, type=int)
-    parser.add_argument('--epochs', default=300, type=int)
+    parser.add_argument('--epochs', default=100, type=int)
     parser.add_argument('--save_freq', default=2, type=int)
     parser.add_argument('--update_freq', default=1, type=int)
     parser.add_argument('--chep', default='', type=str,
-                        help='chceckpint path')
+                        help='checkpoint path')
     
     # Dataset parameters
     parser.add_argument('--num_samples', default=50000, type=int,

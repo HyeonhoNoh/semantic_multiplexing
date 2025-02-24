@@ -103,7 +103,7 @@ class UpConv(nn.Module):
         if self.merge_mode == 'concat':
             x = torch.cat((from_up, from_down), 1)
         else:
-            x = from_down
+            x = from_up
             # x = from_up + from_down
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))

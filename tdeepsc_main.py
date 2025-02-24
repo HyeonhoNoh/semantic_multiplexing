@@ -158,7 +158,6 @@ def main(args):
     #                 args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
     #                 loss_scaler=loss_scaler, epoch=10, model_ema=None)
     ################################## Start Training the T-DeepSC
-    args.epochs = 10
     print(f"Start training for {args.epochs} epochs")
     max_accuracy = 0.0
     start_time = time.time()
